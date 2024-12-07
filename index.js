@@ -8,7 +8,8 @@ var app = {};
 var option;
 
 // 初始数据
-const data = [10, 10, 10, 10, 10, 10];
+const data = [10, 10, 10, 10, 10, 10];  // 实际分配的电力值
+const demandPower = [-1, -1, -1, -1, -1, -1];  // 需求电力值
 const stationNames = ['VIP01', 'VIP02', 'HIGH01', 'HIGH02', 'MID01', 'MID02'];
 
 // 状态常量
@@ -34,19 +35,19 @@ const STATION_TYPE = {
 };
 // 类型对应的颜色
 const TYPE_COLORS = {
-  [STATION_TYPE.VIP]: '#5470c6',   // 金色
-  [STATION_TYPE.HIGH]: '#5470c6',  // 橙色
-  [STATION_TYPE.MID]: '#5470c6'    // 绿色
+  [STATION_TYPE.VIP]: '#5470c6',   // 蓝色
+  [STATION_TYPE.HIGH]: '#5470c6',  // 蓝色
+  [STATION_TYPE.MID]: '#5470c6'    // 蓝色
 };
 // 记录每个柱子的类型
 const barTypes = ['VIP', 'VIP', 'HIGH', 'HIGH', 'MID', 'MID'];
 
-// 获取指定类型的站点数量
+// 获取指定类型的设备数量
 function getTypeCount(type) {
   return barTypes.filter(t => t === type).length;
 }
 
-// 重新生成站点名称
+// 重新生成设备名称
 function regenerateStationNames() {
   const typeCounters = {
     [STATION_TYPE.VIP]: 0,
@@ -77,21 +78,6 @@ function updateChartColors() {
   });
 }
 
-// 更新表格状态的函数
-function updateTableStatus(index) {
-  const tbody = document.querySelector('.info-table tbody');
-  if (!tbody) return;
-  
-  const row = tbody.children[index];
-  if (!row) return;
-  
-  const statusCell = row.querySelector('.status-cell');
-  if (!statusCell) return;
-  
-  const isCharging = barStatus[index] === STATUS.CHARGING;
-  statusCell.textContent = isCharging ? '充电中' : '未充电';
-  statusCell.style.color = isCharging ? '#ff4444' : '#666';
-}
 
 // 总电力上限
 let TOTAL_POWER_LIMIT = 100;
@@ -117,6 +103,26 @@ function updatePowerLimit() {
   updateAllDisplays();
 }
 
+// 从输入框更新图表数据
+function updateChartFromInputs() {
+  const inputs = document.querySelectorAll('.power-input');
+  let hasChanges = false;
+
+  inputs.forEach((input, index) => {
+    const value = parseFloat(input.value);
+    if (!isNaN(value)) {
+      demandPower[index] = value;
+      input.value = ''; // 清空输入框
+      input.placeholder = value; // 更新 placeholder
+      hasChanges = true;
+    }
+  });
+
+  if (hasChanges) {
+    updateAllDisplays();
+  }
+}
+
 // 更新所有显示和数据的公共方法
 function updateAllDisplays() {
   // 重新计算电力分配
@@ -136,10 +142,15 @@ function updateAllDisplays() {
     data.forEach((value, index) => {
       const row = tbody.children[index];
       if (row) {
-        // 更新电力值
+        // 更新分配电力值
         const powerCell = row.children[2];
         if (powerCell) {
           powerCell.textContent = value;
+        }
+        // 更新需求电力值
+        const demandCell = row.children[3];
+        if (demandCell) {
+          demandCell.textContent = demandPower[index];
         }
         // 更新状态
         const statusCell = row.querySelector('.status-cell');
@@ -157,15 +168,105 @@ function updateAllDisplays() {
     });
   }
 
-  // 更新输入框的placeholder
+  // 更新图表下方输入框的 placeholder
   const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
-    input.value = '';
-    input.placeholder = data[index];
+    input.placeholder = demandPower[index];
   });
 
   // 更新当前电力显示
   updateCurrentPower();
+}
+
+// 确认按钮点击处理
+function handleConfirmClick() {
+  const deviceSelector = document.getElementById('deviceSelector');
+  const demandPowerInput = document.getElementById('demandPowerInput');
+  
+  const deviceIndex = parseInt(deviceSelector.value);
+  const value = parseFloat(demandPowerInput.value);
+  
+  if (!isNaN(value)) {
+    demandPower[deviceIndex] = value;
+    demandPowerInput.value = ''; // 清空输入框
+    updateAllDisplays();
+  }
+}
+
+// 初始化表格中的需求电力值显示
+function initDemandPowerDisplay() {
+  const tbody = document.querySelector('.info-table tbody');
+  if (tbody) {
+    demandPower.forEach((value, index) => {
+      const row = tbody.children[index];
+      if (row) {
+        const demandCell = row.children[3];
+        if (demandCell) {
+          demandCell.textContent = value;
+        }
+      }
+    });
+  }
+
+  // 初始化图表下方输入框的 placeholder
+  const inputs = document.querySelectorAll('.power-input');
+  inputs.forEach((input, index) => {
+    input.placeholder = demandPower[index];
+  });
+}
+
+// 计算设备分配电力
+function calculatePowerAllocation() {
+  let remainingPower = TOTAL_POWER_LIMIT;
+  const newData = new Array(6).fill(0);
+  const deviceStates = getDeviceStates();
+  
+  // 按优先级顺序处理设备
+  for (const priority of CONFIG.PRIORITY_ORDER) {
+    // 如果剩余电力为0，停止分配
+    if (remainingPower <= 0) break;
+
+    // 找出符合当前优先级的设备
+    const priorityDevices = deviceStates.filter(device => 
+      device.type === priority.type && 
+      device.charging === priority.charging &&
+      newData[device.index] === 0  // 确保设备还未分配电力
+    );
+    
+    if (priorityDevices.length === 0) continue;
+
+    // 获取当前优先级设备的最小启动电力和额定电流
+    const minPower = CONFIG.MIN_POWER[priority.type];
+    const ratedCurrent = CONFIG.RATED_CURRENT[priority.type];
+    
+    // 计算每个设备可分配的电力
+    for (const device of priorityDevices) {
+      const deviceDemand = demandPower[device.index];
+      // 如果设备有特定需求（不为-1），使用需求值和额定电流的较小值
+      const targetPower = deviceDemand > 0 ? 
+        Math.min(deviceDemand, ratedCurrent) : 
+        ratedCurrent;
+      
+      // 计算实际可分配的电力
+      const allocatedPower = Math.min(
+        targetPower,
+        remainingPower
+      );
+      
+      // 只有当可分配电力大于等于最小启动电力时才分配
+      if (allocatedPower >= minPower) {
+        newData[device.index] = allocatedPower;
+        remainingPower -= allocatedPower;
+      }
+    }
+  }
+
+  // 如果所有设备都是0，保持原来的值
+  if (newData.every(value => value === 0)) {
+    return [...data];
+  }
+  
+  return newData;
 }
 
 // 更新图表
@@ -203,10 +304,6 @@ myChart.on('click', function(params) {
     const index = params.dataIndex;
     // 切换状态
     barStatus[index] = barStatus[index] === STATUS.CHARGING ? STATUS.NOT_CHARGING : STATUS.CHARGING;
-    // 更新表格状态
-    updateTableStatus(index);
-    // 更新图表
-    updateChart();
     updateAllDisplays();
   }
 });
@@ -243,74 +340,6 @@ function getDeviceStates() {
   }));
 }
 
-// 计算设备分配电力
-function calculatePowerAllocation() {
-  let remainingPower = TOTAL_POWER_LIMIT;
-  const newData = new Array(6).fill(0);
-  const deviceStates = getDeviceStates();
-  
-  // 按优先级顺序处理设备
-  for (const priority of CONFIG.PRIORITY_ORDER) {
-    // 如果剩余电力为0，停止分配
-    if (remainingPower <= 0) break;
-
-    // 找出符合当前优先级的设备
-    const priorityDevices = deviceStates.filter(device => 
-      device.type === priority.type && 
-      device.charging === priority.charging &&
-      newData[device.index] === 0  // 确保设备还未分配电力
-    );
-    
-    if (priorityDevices.length === 0) continue;
-
-    // 获取当前优先级设备的最小启动电力和额定电流
-    const minPower = CONFIG.MIN_POWER[priority.type];
-    const ratedCurrent = CONFIG.RATED_CURRENT[priority.type];
-    
-    // 计算每个设备可分配的电力，不超过额定电流
-    const powerPerDevice = Math.min(
-      Math.floor(remainingPower / priorityDevices.length),
-      ratedCurrent
-    );
-    
-    if (powerPerDevice >= minPower) {
-      // 如果每个设备可分配的电力大于等于最小启动电力
-      priorityDevices.forEach(device => {
-        newData[device.index] = powerPerDevice;
-        remainingPower -= powerPerDevice;
-      });
-    } else {
-      // 当平均值小于最小起充数时，按设备名称排序逐一分配最小起充值
-      const sortedDevices = [...priorityDevices].sort((a, b) => {
-        return stationNames[a.index].localeCompare(stationNames[b.index]);
-      });
-
-      // 逐一为排序后的设备分配最小起充值
-      for (const device of sortedDevices) {
-        if (remainingPower >= minPower) {
-          // 如果剩余电力足够最小起充值，则分配
-          newData[device.index] = minPower;
-          remainingPower -= minPower;
-        } else {
-          // 剩余电力不足最小起充值，设置为0
-          newData[device.index] = 0;
-        }
-      }
-    }
-  }
-
-  // 如果所有设备都是0，保持原来的值
-  if (newData.every(value => value === 0)) {
-    return [...data];
-  }
-  
-  return newData;
-}
-
-// 从输入框更新图表
-function updateChartFromInputs() {
-  updateAllDisplays();
-}
 
 // 获取指定类型的下一个可用编号
 function getNextAvailableNumber(type) {
@@ -347,22 +376,6 @@ function updateDeviceType(index) {
   nameCell.textContent = newName;
   stationNames[index] = newName;
   
-  updateAllDisplays();
-}
-
-// 确认按钮点击处理
-function handleConfirmClick() {
-  // 获取所有输入框的值
-  const inputs = document.querySelectorAll('.power-input');
-  const newValues = Array.from(inputs).map(input => {
-    const value = parseFloat(input.value);
-    return isNaN(value) ? parseFloat(input.placeholder) : value;
-  });
-
-  // 更新数据
-  data = [...newValues];
-
-  // 更新所有显示
   updateAllDisplays();
 }
 
@@ -417,15 +430,14 @@ if (option && typeof option === 'object') {
 function initInputPlaceholders() {
   const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
-    input.placeholder = data[index];
+    input.placeholder = demandPower[index].toString();
   });
 }
 
+// 初始化表格中的需求电力值显示
+initDemandPowerDisplay();
 // 初始化当前电力显示
 updateCurrentPower();
-// 初始化输入框placeholder
-initInputPlaceholders();
 // 初始化图表显示
 updateChart();
-
 window.addEventListener('resize', myChart.resize);
