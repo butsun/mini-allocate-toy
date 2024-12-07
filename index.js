@@ -11,56 +11,22 @@ var option;
 const data = [10, 10, 10, 10, 10, 10];
 const stationNames = ['VIP01', 'VIP02', 'HIGH01', 'HIGH02', 'MID01', 'MID02'];
 
-// 定义状态常量
+// 状态常量
 const STATUS = {
-  CHARGING: 'charging',
-  NOT_CHARGING: 'notCharging'
+  CHARGING: 1,
+  NOT_CHARGING: 0
+};
+
+// 状态颜色
+const STATUS_COLORS = {
+  [STATUS.CHARGING]: '#ff4444',
+  [STATUS.NOT_CHARGING]: '#5470c6'
 };
 
 // 记录每个柱子的状态
 const barStatus = new Array(data.length).fill(STATUS.NOT_CHARGING);
 
-// 状态对应的颜色
-const STATUS_COLORS = {
-  [STATUS.CHARGING]: '#ff4444',      // 充电中 - 红色
-  [STATUS.NOT_CHARGING]: '#5470c6'   // 未充电 - 蓝色
-};
-
-// 总电力上限
-let TOTAL_POWER_LIMIT = 100;
-
-// 计算当前总电力
-function calculateTotalPower() {
-  return data.reduce((sum, val) => sum + val, 0);
-}
-
-// 更新当前电力显示
-function updateCurrentPower() {
-  const currentPower = calculateTotalPower();
-  document.getElementById('currentPowerDisplay').textContent = currentPower;
-}
-
-// 更新电力上限的函数
-function updatePowerLimit() {
-  const input = document.getElementById('powerLimitInput');
-  const newLimit = parseInt(input.value);
-  
-  if (isNaN(newLimit) || newLimit <= 0) {
-    alert('请输入有效的电力上限值');
-    return;
-  }
-  
-  const currentTotal = calculateTotalPower();
-  if (newLimit < currentTotal) {
-    alert(`当前总电力(${currentTotal})已超过新的上限值(${newLimit})`);
-    return;
-  }
-  
-  TOTAL_POWER_LIMIT = newLimit;
-  document.getElementById('powerLimitDisplay').textContent = newLimit;
-}
-
-// 定义类型常量
+// 类型常量
 const STATION_TYPE = {
   VIP: 'VIP',
   HIGH: 'HIGH',
@@ -122,14 +88,93 @@ function updateTableStatus(index) {
   const statusCell = row.querySelector('.status-cell');
   if (!statusCell) return;
   
-  const status = barStatus[index];
-  statusCell.textContent = status === STATUS.CHARGING ? '充电中' : '未充电';
-  statusCell.style.color = status === STATUS.CHARGING ? '#ff4444' : '#666';
+  const isCharging = barStatus[index] === STATUS.CHARGING;
+  statusCell.textContent = isCharging ? '充电中' : '未充电';
+  statusCell.style.color = isCharging ? '#ff4444' : '#666';
+}
+
+// 总电力上限
+let TOTAL_POWER_LIMIT = 100;
+
+// 计算当前总电力
+function calculateTotalPower() {
+  return data.reduce((sum, val) => sum + val, 0);
+}
+
+// 更新当前电力显示
+function updateCurrentPower() {
+  const currentPower = calculateTotalPower();
+  document.getElementById('currentPowerDisplay').textContent = currentPower;
+}
+
+// 更新电力上限的函数
+function updatePowerLimit() {
+  const input = document.getElementById('powerLimitInput');
+  const newLimit = parseInt(input.value);
+  TOTAL_POWER_LIMIT = newLimit;
+  document.getElementById('powerLimitDisplay').textContent = newLimit;
+
+  updateAllDisplays();
+}
+
+// 更新所有显示和数据的公共方法
+function updateAllDisplays() {
+  // 重新计算电力分配
+  const newData = calculatePowerAllocation();
+  
+  // 更新数据
+  for (let i = 0; i < data.length; i++) {
+    data[i] = newData[i];
+  }
+
+  // 更新图表
+  updateChart();
+
+  // 更新表格中的电力值和状态
+  const tbody = document.querySelector('.info-table tbody');
+  if (tbody) {
+    data.forEach((value, index) => {
+      const row = tbody.children[index];
+      if (row) {
+        // 更新电力值
+        const powerCell = row.children[2];
+        if (powerCell) {
+          powerCell.textContent = value;
+        }
+        // 更新状态
+        const statusCell = row.querySelector('.status-cell');
+        if (statusCell) {
+          const isCharging = barStatus[index] === STATUS.CHARGING;
+          statusCell.textContent = isCharging ? '充电中' : '未充电';
+          statusCell.style.color = isCharging ? STATUS_COLORS[STATUS.CHARGING] : STATUS_COLORS[STATUS.NOT_CHARGING];
+        }
+        // 确保类型选择框保持正确的值
+        const typeSelect = row.children[1].querySelector('.type-select');
+        if (typeSelect) {
+          typeSelect.value = barTypes[index];
+        }
+      }
+    });
+  }
+
+  // 更新输入框的placeholder
+  const inputs = document.querySelectorAll('.power-input');
+  inputs.forEach((input, index) => {
+    input.value = '';
+    input.placeholder = data[index];
+  });
+
+  // 更新当前电力显示
+  updateCurrentPower();
 }
 
 // 更新图表
 function updateChart() {
   myChart.setOption({
+    xAxis: {
+      type: 'category',
+      data: stationNames
+    },
     series: [{
       name: '电力值',
       type: 'bar',
@@ -143,8 +188,8 @@ function updateChart() {
         show: true,
         position: 'inside',
         formatter: function(params) {
-          const status = barStatus[params.dataIndex];
-          const statusText = status === STATUS.CHARGING ? '充电中' : '未充电';
+          const isCharging = barStatus[params.dataIndex] === STATUS.CHARGING;
+          const statusText = isCharging ? '充电中' : '未充电';
           return `${params.value}\n${statusText}`;
         }
       }
@@ -157,15 +202,12 @@ myChart.on('click', function(params) {
   if (params.componentType === 'series') {
     const index = params.dataIndex;
     // 切换状态
-    barStatus[index] = barStatus[index] === STATUS.CHARGING ? 
-                      STATUS.NOT_CHARGING : 
-                      STATUS.CHARGING;
-    
+    barStatus[index] = barStatus[index] === STATUS.CHARGING ? STATUS.NOT_CHARGING : STATUS.CHARGING;
     // 更新表格状态
     updateTableStatus(index);
-    
     // 更新图表
     updateChart();
+    updateAllDisplays();
   }
 });
 
@@ -267,67 +309,7 @@ function calculatePowerAllocation() {
 
 // 从输入框更新图表
 function updateChartFromInputs() {
-  // 计算新的电力分配
-  const newData = calculatePowerAllocation();
-  
-  // 更新数据
-  for (let i = 0; i < data.length; i++) {
-    data[i] = newData[i];
-  }
-
-  // 更新图表
-  updateChart();
-
-  // 更新表格中的电力值
-  const tbody = document.querySelector('.info-table tbody');
-  if (tbody) {
-    data.forEach((value, index) => {
-      const row = tbody.children[index];
-      if (row) {
-        const powerCell = row.children[2];
-        if (powerCell) {
-          powerCell.textContent = value;
-        }
-      }
-    });
-  }
-
-  // 更新输入框的placeholder
-  const inputs = document.querySelectorAll('.power-input');
-  inputs.forEach((input, index) => {
-    input.value = '';
-    input.placeholder = data[index];
-  });
-
-  // 更新当前电力显示
-  updateCurrentPower();
-}
-
-// 在清空数据时也更新表格
-function clearAllData() {
-  // 将所有数据设置为10
-  data.fill(10);
-  
-  // 更新图表
-  myChart.setOption({
-    series: [
-      {
-        type: 'bar',
-        data: data
-      }
-    ]
-  });
-
-
-  // 更新输入框的placeholder
-  const inputs = document.querySelectorAll('.power-input');
-  inputs.forEach(input => {
-    input.value = '';
-    input.placeholder = '10';
-  });
-
-  // 更新当前电力显示
-  updateCurrentPower();
+  updateAllDisplays();
 }
 
 // 获取指定类型的下一个可用编号
@@ -365,43 +347,26 @@ function updateDeviceType(index) {
   nameCell.textContent = newName;
   stationNames[index] = newName;
   
-  // 重新计算电力分配
-  const newData = calculatePowerAllocation();
-  
-  // 更新数据
-  for (let i = 0; i < data.length; i++) {
-    data[i] = newData[i];
-  }
-
-  // 更新图表
-  updateChart();
-
-  // 更新表格中的电力值
-  const tbody = document.querySelector('.info-table tbody');
-  if (tbody) {
-    data.forEach((value, index) => {
-      const row = tbody.children[index];
-      if (row) {
-        const powerCell = row.children[2]; // 因为新增了类型列，所以电力值现在是第3列
-        if (powerCell) {
-          powerCell.textContent = value;
-        }
-      }
-    });
-  }
-
-  // 更新输入框的placeholder
-  const inputs = document.querySelectorAll('.power-input');
-  inputs.forEach((input, index) => {
-    input.value = '';
-    input.placeholder = data[index];
-  });
-
-  // 更新当前电力显示
-  updateCurrentPower();
+  updateAllDisplays();
 }
 
-option = {
+// 确认按钮点击处理
+function handleConfirmClick() {
+  // 获取所有输入框的值
+  const inputs = document.querySelectorAll('.power-input');
+  const newValues = Array.from(inputs).map(input => {
+    const value = parseFloat(input.value);
+    return isNaN(value) ? parseFloat(input.placeholder) : value;
+  });
+
+  // 更新数据
+  data = [...newValues];
+
+  // 更新所有显示
+  updateAllDisplays();
+}
+
+var option = {
   title: {
     text: '设备电力分配',
     left: 'center'
@@ -434,10 +399,7 @@ option = {
     data: data,
     itemStyle: {
       color: function(params) {
-        const status = barStatus[params.dataIndex];
-        return status === STATUS.CHARGING ? 
-               STATUS_COLORS[status] : 
-               TYPE_COLORS[barTypes[params.dataIndex]];
+        return STATUS_COLORS[barStatus[params.dataIndex]];
       }
     },
     label: {
