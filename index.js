@@ -9,11 +9,14 @@ var option;
 
 // 初始数据
 const data = [10, 10, 10, 10, 10, 10];
+const stationNames = ['VIP01', 'VIP02', 'HIGH01', 'HIGH02', 'MID01', 'MID02'];
+
 // 定义状态常量
 const STATUS = {
   CHARGING: 'charging',
   NOT_CHARGING: 'notCharging'
 };
+
 // 记录每个柱子的状态
 const barStatus = new Array(data.length).fill(STATUS.NOT_CHARGING);
 
@@ -65,13 +68,12 @@ const STATION_TYPE = {
 };
 // 类型对应的颜色
 const TYPE_COLORS = {
-  [STATION_TYPE.VIP]: '#ffd700',   // 金色
-  [STATION_TYPE.HIGH]: '#ff9800',  // 橙色
-  [STATION_TYPE.MID]: '#4CAF50'    // 绿色
+  [STATION_TYPE.VIP]: '#5470c6',   // 金色
+  [STATION_TYPE.HIGH]: '#5470c6',  // 橙色
+  [STATION_TYPE.MID]: '#5470c6'    // 绿色
 };
 // 记录每个柱子的类型
 const barTypes = ['VIP', 'VIP', 'HIGH', 'HIGH', 'MID', 'MID'];
-const stationNames = ['VIP01', 'VIP02', 'HIGH01', 'HIGH02', 'MID01', 'MID02'];
 
 // 获取指定类型的站点数量
 function getTypeCount(type) {
@@ -169,67 +171,34 @@ myChart.on('click', function(params) {
 
 // 配置参数
 const CONFIG = {
-  // 设备类型和充电状态的优先级顺序
-  PRIORITY_ORDER: [
-    { type: 'VIP', charging: true },   // VIP充电中
-    { type: 'VIP', charging: false },  // VIP未充电
-    { type: 'HIGH', charging: true },  // HIGH充电中
-    { type: 'HIGH', charging: false }, // HIGH未充电
-    { type: 'MID', charging: true },   // MID充电中
-    { type: 'MID', charging: false }   // MID未充电
-  ],
-  TYPE_PRIORITY: ['VIP', 'HIGH', 'MID'],
-  // 每种类型的最小起充数
+  TOTAL_POWER_LIMIT: 100,
   MIN_POWER: {
     VIP: 6,
     HIGH: 6,
     MID: 6
   },
-  // 每种类型的额定电流值，默认32
   RATED_CURRENT: {
     VIP: 32,
     HIGH: 32,
     MID: 32
-  }
+  },
+  PRIORITY_ORDER: [
+    { type: 'VIP', charging: true },
+    { type: 'HIGH', charging: true },
+    { type: 'MID', charging: true },
+    { type: 'VIP', charging: false },
+    { type: 'HIGH', charging: false },
+    { type: 'MID', charging: false }
+  ]
 };
-
-// 计算每种类型的分配率
-function calculateTypeRates(types) {
-  // 统计每种类型的设备数量
-  const typeCounts = {
-    VIP: types.filter(t => t === 'VIP').length,
-    HIGH: types.filter(t => t === 'HIGH').length,
-    MID: types.filter(t => t === 'MID').length
-  };
-
-  // 计算每种类型的总额定电流
-  const typeCurrents = {
-    VIP: typeCounts.VIP * CONFIG.RATED_CURRENT.VIP,
-    HIGH: typeCounts.HIGH * CONFIG.RATED_CURRENT.HIGH,
-    MID: typeCounts.MID * CONFIG.RATED_CURRENT.MID
-  };
-
-  // 计算总额定电流
-  const totalCurrent = typeCurrents.VIP + typeCurrents.HIGH + typeCurrents.MID;
-
-  // 计算每种类型的分配率
-  return {
-    VIP: totalCurrent ? typeCurrents.VIP / totalCurrent : 0,
-    HIGH: totalCurrent ? typeCurrents.HIGH / totalCurrent : 0,
-    MID: totalCurrent ? typeCurrents.MID / totalCurrent : 0
-  };
-}
 
 // 获取设备当前状态
 function getDeviceStates() {
-  const types = Array.from(document.querySelectorAll('.type-select')).map(select => select.value);
-  const statusCells = document.querySelectorAll('.status-cell');
-  const states = types.map((type, index) => ({
+  return stationNames.map((name, index) => ({
     index,
-    type,
-    charging: statusCells[index].textContent === '充电中'
+    type: name.substring(0, name.length - 2),  // 提取类型（VIP/HIGH/MID）
+    charging: barStatus[index] === STATUS.CHARGING
   }));
-  return states;
 }
 
 // 计算设备分配电力
@@ -264,16 +233,14 @@ function calculatePowerAllocation() {
     
     if (powerPerDevice >= minPower) {
       // 如果每个设备可分配的电力大于等于最小启动电力
-      priorityDevices.forEach((device, index) => {
+      priorityDevices.forEach(device => {
         newData[device.index] = powerPerDevice;
-        remainingPower -= newData[device.index];
+        remainingPower -= powerPerDevice;
       });
     } else {
       // 当平均值小于最小起充数时，按设备名称排序逐一分配最小起充值
       const sortedDevices = [...priorityDevices].sort((a, b) => {
-        const nameA = document.querySelector(`.info-table tbody tr:nth-child(${a.index + 1}) td:first-child`).textContent;
-        const nameB = document.querySelector(`.info-table tbody tr:nth-child(${b.index + 1}) td:first-child`).textContent;
-        return nameA.localeCompare(nameB);
+        return stationNames[a.index].localeCompare(stationNames[b.index]);
       });
 
       // 逐一为排序后的设备分配最小起充值
@@ -289,16 +256,17 @@ function calculatePowerAllocation() {
       }
     }
   }
+
+  // 如果所有设备都是0，保持原来的值
+  if (newData.every(value => value === 0)) {
+    return [...data];
+  }
   
   return newData;
 }
 
 // 从输入框更新图表
 function updateChartFromInputs() {
-  const inputs = document.querySelectorAll('.power-input');
-  let newTotal = 0;
-  const newValues = [];
-
   // 计算新的电力分配
   const newData = calculatePowerAllocation();
   
@@ -325,6 +293,7 @@ function updateChartFromInputs() {
   }
 
   // 更新输入框的placeholder
+  const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
     input.value = '';
     input.placeholder = data[index];
@@ -423,6 +392,7 @@ function initInputPlaceholders() {
 updateCurrentPower();
 // 初始化输入框placeholder
 initInputPlaceholders();
-
+// 初始化图表显示
+updateChart();
 
 window.addEventListener('resize', myChart.resize);
