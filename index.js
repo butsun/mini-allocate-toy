@@ -220,103 +220,168 @@ function calculatePowerAllocation() {
   let remainingPower = TOTAL_POWER_LIMIT;
   const newData = new Array(6).fill(0);
   const deviceStates = getDeviceStates();
-  
-  // 第一步：按优先级顺序进行初始电力分配
-  for (const priority of CONFIG.PRIORITY_ORDER) {
-    // 如果剩余电力为0，停止分配
-    if (remainingPower <= 0) break;
 
-    // 找出符合当前优先级的设备
-    const priorityDevices = deviceStates.filter(device => 
-      device.type === priority.type && 
-      device.charging === priority.charging &&
-      newData[device.index] === 0  // 确保设备还未分配电力
+  // 辅助函数：获取特定类型和状态的设备
+  function getDevicesByTypeAndStatus(type, charging) {
+    return deviceStates.filter(device => 
+      device.type === type && 
+      device.charging === charging
     );
-    
-    if (priorityDevices.length === 0) continue;
-
-    // 获取当前优先级设备的最小启动电力和额定电流
-    const minPower = CONFIG.MIN_POWER[priority.type];
-    const ratedCurrent = CONFIG.RATED_CURRENT[priority.type];
-    
-    // 计算当前组设备的总额定电流
-    const totalRatedCurrent = priorityDevices.length * ratedCurrent;
-    
-    // 计算每个设备可分配的电力
-    for (const device of priorityDevices) {
-      // 计算该设备额定电流占组内总额定电流的比例
-      const deviceRatio = ratedCurrent / totalRatedCurrent;
-      
-      // 按比例分配剩余电力
-      const allocatedPower = Math.min(
-        Math.floor(remainingPower * deviceRatio),
-        ratedCurrent
-      );
-      
-      // 只有当可分配电力大于等于最小启动电力时才分配
-      if (allocatedPower >= minPower) {
-        newData[device.index] = allocatedPower;
-        remainingPower -= allocatedPower;
-      }
-    }
   }
 
-  // 第二步：根据需求电力调整分配结果
-  for (let i = 0; i < newData.length; i++) {
-    if (newData[i] > 0) {  // 只处理已分配电力的设备
-      const deviceDemand = demandPower[i];
-      if (deviceDemand > 0) {  // 如果有具体需求（不为-1）
-        // 如果需求小于分配值，释放多余电力
-        if (deviceDemand < newData[i]) {
-          remainingPower += (newData[i] - deviceDemand);
-          newData[i] = deviceDemand;
+  // 辅助函数：分配电力给设备组
+  function allocateGroupPowerWithPriority(devices, ratedPower, minPower) {
+    if (devices.length === 0) return;
+    
+    const powerPerDevice = Math.floor(remainingPower / devices.length);
+
+    if (powerPerDevice >= ratedPower) {
+      // 如果能达到额定电力，直接分配额定电力
+      devices.forEach(device => {
+        newData[device.index] = ratedPower;
+        remainingPower -= ratedPower;
+      });
+    } else if (powerPerDevice >= minPower) {
+      // 如果能达到最小启动电力，平均分配
+      devices.forEach(device => {
+        newData[device.index] = powerPerDevice;
+        remainingPower -= powerPerDevice;
+      });
+    } else {
+      // 按设备名称降序排序
+      const sortedDevices = [...devices].sort((a, b) => 
+        stationNames[b.index].localeCompare(stationNames[a.index])
+      );
+      
+      // 逐个分配最小启动电力
+      sortedDevices.forEach(device => {
+        if (remainingPower >= minPower) {
+          newData[device.index] = minPower;
+          remainingPower -= minPower;
+        } else {
+          newData[device.index] = 0;
         }
-      }
+      });
     }
   }
 
-  // 第三步：重新分配释放的电力
-  if (remainingPower > 0) {
-    for (const priority of CONFIG.PRIORITY_ORDER) {
-      if (remainingPower <= 0) break;
-
-      const priorityDevices = deviceStates.filter(device => 
-        device.type === priority.type && 
-        device.charging === priority.charging &&
-        newData[device.index] > 0 &&  // 已分配电力的设备
-        demandPower[device.index] === -1  // 没有具体需求的设备
-      );
-
-      if (priorityDevices.length === 0) continue;
-
-      const ratedCurrent = CONFIG.RATED_CURRENT[priority.type];
-      
-      // 平均分配剩余电力
-      const powerPerDevice = Math.min(
-        Math.floor(remainingPower / priorityDevices.length),
-        ratedCurrent
-      );
-
-      if (powerPerDevice > 0) {
-        for (const device of priorityDevices) {
-          const additionalPower = Math.min(
-            ratedCurrent - newData[device.index],  // 还能接受的电力
-            powerPerDevice  // 平均分配的电力
-          );
-          if (additionalPower > 0) {
-            newData[device.index] += additionalPower;
-            remainingPower -= additionalPower;
+  // 辅助函数：根据需求电力调整并回收多余电力
+  function adjustPowerByDemand(devices) {
+    devices.forEach(device => {
+      if (newData[device.index] > 0) {  // 只处理已分配电力的设备
+        const deviceDemand = demandPower[device.index];
+        if (deviceDemand > 0) {  // 如果有具体需求（不为-1）
+          if (deviceDemand < newData[device.index]) {
+            remainingPower += (newData[device.index] - deviceDemand);
+            newData[device.index] = deviceDemand;
           }
         }
       }
-    }
+    });
   }
 
-  // 如果所有设备都是0，保持原来的值
-  if (newData.every(value => value === 0)) {
-    return [...data];
+  // 1. VIP在充分配
+  const chargingVIP = getDevicesByTypeAndStatus('VIP', true);
+  if (chargingVIP.length > 0) {
+    allocateGroupPowerWithPriority(
+      chargingVIP, 
+      CONFIG.RATED_CURRENT.VIP, 
+      CONFIG.MIN_POWER.VIP
+    );
+    // VIP在充需求电力判断和回收
+    adjustPowerByDemand(chargingVIP);
   }
-  
+
+  // 2. VIP不在充分配（借电策略：必须保证6A最小启动电力）
+  const notChargingVIP = getDevicesByTypeAndStatus('VIP', false);
+  if (notChargingVIP.length > 0) {
+    // VIP非充电设备必须保证最小启动电力
+    const minPowerVIP = CONFIG.MIN_POWER.VIP;
+    // 按设备名称降序排序，确保高优先级设备先获得最小启动电力
+    const sortedDevices = [...notChargingVIP].sort((a, b) => 
+      stationNames[b.index].localeCompare(stationNames[a.index])
+    );
+    
+    // 逐个保证最小启动电力
+    sortedDevices.forEach(device => {
+      if (remainingPower >= minPowerVIP) {
+        newData[device.index] = minPowerVIP;
+        remainingPower -= minPowerVIP;
+      } else {
+        newData[device.index] = 0;
+      }
+    });
+  }
+
+  // 3. HIGH在充分配
+  const chargingHigh = getDevicesByTypeAndStatus('HIGH', true);
+  if (chargingHigh.length > 0) {
+    allocateGroupPowerWithPriority(
+      chargingHigh,
+      CONFIG.RATED_CURRENT.HIGH,
+      CONFIG.MIN_POWER.HIGH
+    );
+    // HIGH在充需求电力判断和回收
+    adjustPowerByDemand(chargingHigh);
+  }
+
+  // 4. HIGH不在充分配（借电策略：分配0）
+  const notChargingHigh = getDevicesByTypeAndStatus('HIGH', false);
+  notChargingHigh.forEach(device => {
+    newData[device.index] = 0;
+  });
+
+  // 5. MID在充分配
+  const chargingMid = getDevicesByTypeAndStatus('MID', true);
+  if (chargingMid.length > 0) {
+    allocateGroupPowerWithPriority(
+      chargingMid,
+      CONFIG.RATED_CURRENT.MID,
+      CONFIG.MIN_POWER.MID
+    );
+  }
+
+  // 6. 重新分配非在充设备额外电力
+  // VIP非在充额外分配（在保持最小启动电力的基础上）
+  if (notChargingVIP.length > 0) {
+    const ratedPowerVIP = CONFIG.RATED_CURRENT.VIP;
+    const minPowerVIP = CONFIG.MIN_POWER.VIP;
+    const additionalPowerNeeded = ratedPowerVIP - minPowerVIP;
+
+    // 按设备名称降序排序
+    const sortedDevices = [...notChargingVIP].sort((a, b) => 
+      stationNames[b.index].localeCompare(stationNames[a.index])
+    );
+    
+    // 只给已经有最小启动电力的设备增加额外电力
+    sortedDevices.forEach(device => {
+      if (newData[device.index] === minPowerVIP && remainingPower > 0) {
+        const actualAdditional = Math.min(remainingPower, additionalPowerNeeded);
+        newData[device.index] += actualAdditional;
+        remainingPower -= actualAdditional;
+      }
+    });
+  }
+
+  // HIGH非在充重新分配
+  if (remainingPower > 0 && notChargingHigh.length > 0) {
+    allocateGroupPowerWithPriority(
+      notChargingHigh,
+      CONFIG.RATED_CURRENT.HIGH,
+      CONFIG.MIN_POWER.HIGH
+    );
+  }
+
+  // MID非在充重新分配
+  const notChargingMid = getDevicesByTypeAndStatus('MID', false);
+  if (remainingPower > 0 && notChargingMid.length > 0) {
+    allocateGroupPowerWithPriority(
+      notChargingMid,
+      CONFIG.RATED_CURRENT.MID,
+      CONFIG.MIN_POWER.MID
+    );
+  }
+
   return newData;
 }
 
