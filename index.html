@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>场站电力分配</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .main-container {
+      width: 100%;
+      height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      gap: 20px;
+    }
+    .table-container {
+      min-width: 250px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      flex-grow: 1;
+    }
+    .info-table th,
+    .info-table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    .info-table th {
+      background-color: #f5f5f5;
+    }
+    .info-table tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .power-limit {
+      padding: 15px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+    }
+    .power-limit-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .power-limit input {
+      width: 80px;
+      padding: 4px;
+      text-align: center;
+    }
+    .power-limit button {
+      padding: 4px 8px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .power-limit button:hover {
+      background-color: #45a049;
+    }
+    .power-limit .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      text-align: center;
+    }
+    .chart-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    #chart-container {
+      flex: 1;
+      min-height: 0;
+    }
+    .input-container {
+      text-align: center;
+      padding: 10px 0;
+    }
+    #dataInput {
+      width: 300px;
+      padding: 5px;
+    }
+    button {
+      padding: 5px 15px;
+      margin-left: 10px;
+    }
+    .status-cell {
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <div class="table-container">
+      <div class="power-limit">
+        <div class="power-limit-header">
+          <span>总电力上限</span>
+          <div>
+            <input type="number" id="powerLimitInput" min="0" value="100">
+            <button onclick="updatePowerLimit()">更新</button>
+          </div>
+        </div>
+        <div class="value"><span id="powerLimitDisplay">100</span></div>
+      </div>
+      <table class="info-table">
+        <thead>
+          <tr>
+            <th>场站</th>
+            <th>分配电力值</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>VIP01</td>
+            <td>50</td>
+            <td class="status-cell">未充电</td>
+          </tr>
+          <tr>
+            <td>VIP02</td>
+            <td>50</td>
+            <td class="status-cell">未充电</td>
+          </tr>
+          <tr>
+            <td>HIGH01</td>
+            <td>50</td>
+            <td class="status-cell">未充电</td>
+          </tr>
+          <tr>
+            <td>HIGH02</td>
+            <td>50</td>
+            <td class="status-cell">未充电</td>
+          </tr>
+          <tr>
+            <td>MID01</td>
+            <td>50</td>
+            <td class="status-cell">未充电</td>
+          </tr>
+          <tr>
+            <td>MID02</td>
+            <td>50</td>
+            <td class="status-cell">未充电</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="chart-section">
+      <div id="chart-container"></div>
+      <div class="input-container">
+        <input type="text" id="dataInput" placeholder="请输入6个数字，用逗号分隔（例如：10,20,30,40,50,60）">
+        <button onclick="updateChart()">确定</button>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>
