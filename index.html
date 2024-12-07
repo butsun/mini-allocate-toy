@@ -126,7 +126,8 @@
           <table class="info-table">
             <thead>
               <tr>
-                <th>场站</th>
+                <th>设备</th>
+                <th>类型</th>
                 <th>分配电力值</th>
                 <th>状态</th>
               </tr>
@@ -134,31 +135,73 @@
             <tbody>
               <tr>
                 <td>VIP01</td>
+                <td>
+                  <select class="type-select" onchange="updateDeviceType(0)">
+                    <option value="VIP" selected>VIP</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MID">MID</option>
+                  </select>
+                </td>
                 <td>10</td>
                 <td class="status-cell">未充电</td>
               </tr>
               <tr>
                 <td>VIP02</td>
+                <td>
+                  <select class="type-select" onchange="updateDeviceType(1)">
+                    <option value="VIP" selected>VIP</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MID">MID</option>
+                  </select>
+                </td>
                 <td>10</td>
                 <td class="status-cell">未充电</td>
               </tr>
               <tr>
                 <td>HIGH01</td>
+                <td>
+                  <select class="type-select" onchange="updateDeviceType(2)">
+                    <option value="VIP">VIP</option>
+                    <option value="HIGH" selected>HIGH</option>
+                    <option value="MID">MID</option>
+                  </select>
+                </td>
                 <td>10</td>
                 <td class="status-cell">未充电</td>
               </tr>
               <tr>
                 <td>HIGH02</td>
+                <td>
+                  <select class="type-select" onchange="updateDeviceType(3)">
+                    <option value="VIP">VIP</option>
+                    <option value="HIGH" selected>HIGH</option>
+                    <option value="MID">MID</option>
+                  </select>
+                </td>
                 <td>10</td>
                 <td class="status-cell">未充电</td>
               </tr>
               <tr>
                 <td>MID01</td>
+                <td>
+                  <select class="type-select" onchange="updateDeviceType(4)">
+                    <option value="VIP">VIP</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MID" selected>MID</option>
+                  </select>
+                </td>
                 <td>10</td>
                 <td class="status-cell">未充电</td>
               </tr>
               <tr>
                 <td>MID02</td>
+                <td>
+                  <select class="type-select" onchange="updateDeviceType(5)">
+                    <option value="VIP">VIP</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MID" selected>MID</option>
+                  </select>
+                </td>
                 <td>10</td>
                 <td class="status-cell">未充电</td>
               </tr>

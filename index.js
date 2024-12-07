@@ -284,7 +284,7 @@ function updateChartFromInputs() {
     data.forEach((value, index) => {
       const row = tbody.children[index];
       if (row) {
-        const powerCell = row.children[1];
+        const powerCell = row.children[2];
         if (powerCell) {
           powerCell.textContent = value;
         }
@@ -324,6 +324,77 @@ function clearAllData() {
   inputs.forEach(input => {
     input.value = '';
     input.placeholder = '10';
+  });
+
+  // 更新当前电力显示
+  updateCurrentPower();
+}
+
+// 获取指定类型的下一个可用编号
+function getNextAvailableNumber(type) {
+  // 获取当前所有该类型的设备编号
+  const existingNumbers = stationNames
+    .filter(name => name.startsWith(type))
+    .map(name => parseInt(name.slice(-2)));
+  
+  // 从01开始查找第一个未使用的编号
+  let number = 1;
+  while (existingNumbers.includes(number)) {
+    number++;
+  }
+  
+  // 返回两位数的字符串格式
+  return number.toString().padStart(2, '0');
+}
+
+// 更新设备类型
+function updateDeviceType(index) {
+  const select = document.querySelectorAll('.type-select')[index];
+  const newType = select.value;
+  const oldType = barTypes[index];
+  
+  // 更新设备类型
+  barTypes[index] = newType;
+  
+  // 生成新的设备名称
+  const newNumber = getNextAvailableNumber(newType);
+  const newName = `${newType}${newNumber}`;
+  
+  // 更新设备名称
+  const nameCell = select.parentElement.previousElementSibling;
+  nameCell.textContent = newName;
+  stationNames[index] = newName;
+  
+  // 重新计算电力分配
+  const newData = calculatePowerAllocation();
+  
+  // 更新数据
+  for (let i = 0; i < data.length; i++) {
+    data[i] = newData[i];
+  }
+
+  // 更新图表
+  updateChart();
+
+  // 更新表格中的电力值
+  const tbody = document.querySelector('.info-table tbody');
+  if (tbody) {
+    data.forEach((value, index) => {
+      const row = tbody.children[index];
+      if (row) {
+        const powerCell = row.children[2]; // 因为新增了类型列，所以电力值现在是第3列
+        if (powerCell) {
+          powerCell.textContent = value;
+        }
+      }
+    });
+  }
+
+  // 更新输入框的placeholder
+  const inputs = document.querySelectorAll('.power-input');
+  inputs.forEach((input, index) => {
+    input.value = '';
+    input.placeholder = data[index];
   });
 
   // 更新当前电力显示
