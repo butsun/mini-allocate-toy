@@ -17,21 +17,63 @@
       padding: 20px;
       box-sizing: border-box;
       display: flex;
+      flex-direction: column;
       gap: 20px;
     }
-    .table-container {
-      min-width: 250px;
+    .content-wrapper {
+      display: flex;
+      flex: 1;
+      gap: 20px;
+      min-height: 0;
+    }
+    .left-section {
+      flex: 0 0 300px;
       display: flex;
       flex-direction: column;
       gap: 20px;
+      overflow: auto;
+    }
+    .right-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .chart-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    #chart-container {
+      flex: 1;
+      min-height: 0;
+    }
+    .power-inputs {
+      display: flex;
+      justify-content: space-around;
+      padding: 20px;
+      gap: 10px;
+    }
+    .power-input-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .power-input {
+      width: 80px;
+      text-align: center;
+      padding: 5px;
+    }
+    .info-section {
+      width: 100%;
     }
     .info-table {
       width: 100%;
       border-collapse: collapse;
-      flex-grow: 1;
     }
-    .info-table th,
-    .info-table td {
+    .info-table th, .info-table td {
       border: 1px solid #ddd;
       padding: 8px;
       text-align: center;
@@ -39,129 +81,125 @@
     .info-table th {
       background-color: #f5f5f5;
     }
-    .info-table tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-    .power-limit {
-      padding: 15px;
+    .power-limit-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px;
       background-color: #f5f5f5;
       border-radius: 4px;
     }
-    .power-limit-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .power-limit input {
-      width: 80px;
-      padding: 4px;
-      text-align: center;
-    }
-    .power-limit button {
-      padding: 4px 8px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-    }
-    .power-limit button:hover {
-      background-color: #45a049;
-    }
-    .power-limit .value {
-      font-size: 24px;
-      font-weight: bold;
-      color: #333;
-      text-align: center;
-    }
-    .chart-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    #chart-container {
-      flex: 1;
-      min-height: 0;
-    }
-    .input-container {
-      text-align: center;
-      padding: 10px 0;
-    }
-    #dataInput {
-      width: 300px;
+    .power-limit-input {
+      width: 100px;
       padding: 5px;
-    }
-    button {
-      padding: 5px 15px;
-      margin-left: 10px;
     }
     .status-cell {
       color: #666;
+    }
+    .submit-btn {
+      padding: 8px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .submit-btn:hover {
+      background-color: #45a049;
     }
   </style>
 </head>
 <body>
   <div class="main-container">
-    <div class="table-container">
-      <div class="power-limit">
-        <div class="power-limit-header">
-          <span>总电力上限</span>
-          <div>
-            <input type="number" id="powerLimitInput" min="0" value="100">
-            <button onclick="updatePowerLimit()">更新</button>
+    <div class="power-limit-section">
+      <span>电力上限：</span>
+      <input type="number" id="powerLimitInput" class="power-limit-input" placeholder="输入电力上限">
+      <button onclick="updatePowerLimit()" class="submit-btn">设置</button>
+      <span>当前电力上限：<span id="powerLimitDisplay">100</span></span>
+      <span>当前总电力：<span id="currentPowerDisplay">0</span></span>
+    </div>
+    
+    <div class="content-wrapper">
+      <div class="left-section">
+        <div class="info-section">
+          <table class="info-table">
+            <thead>
+              <tr>
+                <th>场站</th>
+                <th>分配电力值</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>VIP01</td>
+                <td>50</td>
+                <td class="status-cell">未充电</td>
+              </tr>
+              <tr>
+                <td>VIP02</td>
+                <td>50</td>
+                <td class="status-cell">未充电</td>
+              </tr>
+              <tr>
+                <td>HIGH01</td>
+                <td>50</td>
+                <td class="status-cell">未充电</td>
+              </tr>
+              <tr>
+                <td>HIGH02</td>
+                <td>50</td>
+                <td class="status-cell">未充电</td>
+              </tr>
+              <tr>
+                <td>MID01</td>
+                <td>50</td>
+                <td class="status-cell">未充电</td>
+              </tr>
+              <tr>
+                <td>MID02</td>
+                <td>50</td>
+                <td class="status-cell">未充电</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="right-section">
+        <div class="chart-section">
+          <div id="chart-container"></div>
+          <div class="power-inputs">
+            <div class="power-input-group">
+              <input type="number" class="power-input" placeholder="10">
+              <span>VIP01</span>
+            </div>
+            <div class="power-input-group">
+              <input type="number" class="power-input" placeholder="10">
+              <span>VIP02</span>
+            </div>
+            <div class="power-input-group">
+              <input type="number" class="power-input" placeholder="10">
+              <span>HIGH01</span>
+            </div>
+            <div class="power-input-group">
+              <input type="number" class="power-input" placeholder="10">
+              <span>HIGH02</span>
+            </div>
+            <div class="power-input-group">
+              <input type="number" class="power-input" placeholder="10">
+              <span>MID01</span>
+            </div>
+            <div class="power-input-group">
+              <input type="number" class="power-input" placeholder="10">
+              <span>MID02</span>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 10px;">
+            <button onclick="updateChartFromInputs()" class="submit-btn">确定</button>
           </div>
         </div>
-        <div class="value"><span id="powerLimitDisplay">100</span></div>
-      </div>
-      <table class="info-table">
-        <thead>
-          <tr>
-            <th>场站</th>
-            <th>分配电力值</th>
-            <th>状态</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>VIP01</td>
-            <td>50</td>
-            <td class="status-cell">未充电</td>
-          </tr>
-          <tr>
-            <td>VIP02</td>
-            <td>50</td>
-            <td class="status-cell">未充电</td>
-          </tr>
-          <tr>
-            <td>HIGH01</td>
-            <td>50</td>
-            <td class="status-cell">未充电</td>
-          </tr>
-          <tr>
-            <td>HIGH02</td>
-            <td>50</td>
-            <td class="status-cell">未充电</td>
-          </tr>
-          <tr>
-            <td>MID01</td>
-            <td>50</td>
-            <td class="status-cell">未充电</td>
-          </tr>
-          <tr>
-            <td>MID02</td>
-            <td>50</td>
-            <td class="status-cell">未充电</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="chart-section">
-      <div id="chart-container"></div>
-      <div class="input-container">
-        <input type="text" id="dataInput" placeholder="请输入6个数字，用逗号分隔（例如：10,20,30,40,50,60）">
-        <button onclick="updateChart()">确定</button>
       </div>
     </div>
   </div>

@@ -14,47 +14,15 @@ const STATUS = {
   CHARGING: 'charging',
   NOT_CHARGING: 'notCharging'
 };
-// 定义类型常量
-const STATION_TYPE = {
-  VIP: 'VIP',
-  HIGH: 'HIGH',
-  MID: 'MID'
-};
-// 类型对应的颜色
-const TYPE_COLORS = {
-  [STATION_TYPE.VIP]: '#ffd700',   // 金色
-  [STATION_TYPE.HIGH]: '#ff9800',  // 橙色
-  [STATION_TYPE.MID]: '#4CAF50'    // 绿色
-};
-// 记录每个柱子的状态和类型
+// 记录每个柱子的状态
 const barStatus = new Array(data.length).fill(STATUS.NOT_CHARGING);
-const barTypes = ['VIP', 'VIP', 'HIGH', 'HIGH', 'MID', 'MID'];
-const stationNames = ['VIP01', 'VIP02', 'HIGH01', 'HIGH02', 'MID01', 'MID02'];
-
-// 获取指定类型的站点数量
-function getTypeCount(type) {
-  return barTypes.filter(t => t === type).length;
-}
-
-// 重新生成站点名称
-function regenerateStationNames() {
-  const typeCounters = {
-    [STATION_TYPE.VIP]: 0,
-    [STATION_TYPE.HIGH]: 0,
-    [STATION_TYPE.MID]: 0
-  };
-
-  barTypes.forEach((type, index) => {
-    typeCounters[type]++;
-    stationNames[index] = `${type}${String(typeCounters[type]).padStart(2, '0')}`;
-  });
-}
 
 // 状态对应的颜色
 const STATUS_COLORS = {
   [STATUS.CHARGING]: '#ff4444',      // 充电中 - 红色
   [STATUS.NOT_CHARGING]: '#5470c6'   // 未充电 - 蓝色
 };
+
 // 总电力上限
 let TOTAL_POWER_LIMIT = 100;
 
@@ -79,37 +47,49 @@ function updatePowerLimit() {
     return;
   }
   
+  const currentTotal = calculateTotalPower();
+  if (newLimit < currentTotal) {
+    alert(`当前总电力(${currentTotal})已超过新的上限值(${newLimit})`);
+    return;
+  }
+  
   TOTAL_POWER_LIMIT = newLimit;
   document.getElementById('powerLimitDisplay').textContent = newLimit;
 }
 
-// 更新站点类型的函数
-function updateStationType(index, newType) {
-  const oldType = barTypes[index];
-  barTypes[index] = newType;
-  
-  // 更新下拉框的样式
-  const select = document.querySelectorAll('.type-select')[index];
-  select.className = 'type-select ' + newType;
+// 定义类型常量
+const STATION_TYPE = {
+  VIP: 'VIP',
+  HIGH: 'HIGH',
+  MID: 'MID'
+};
+// 类型对应的颜色
+const TYPE_COLORS = {
+  [STATION_TYPE.VIP]: '#ffd700',   // 金色
+  [STATION_TYPE.HIGH]: '#ff9800',  // 橙色
+  [STATION_TYPE.MID]: '#4CAF50'    // 绿色
+};
+// 记录每个柱子的类型
+const barTypes = ['VIP', 'VIP', 'HIGH', 'HIGH', 'MID', 'MID'];
+const stationNames = ['VIP01', 'VIP02', 'HIGH01', 'HIGH02', 'MID01', 'MID02'];
 
-  // 重新生成所有站点名称
-  regenerateStationNames();
-  
-  // 更新表格中的站点名称
-  const tbody = document.querySelector('.info-table tbody');
-  stationNames.forEach((name, idx) => {
-    tbody.children[idx].children[0].textContent = name;
-  });
+// 获取指定类型的站点数量
+function getTypeCount(type) {
+  return barTypes.filter(t => t === type).length;
+}
 
-  // 更新图表X轴标签
-  myChart.setOption({
-    xAxis: {
-      data: stationNames
-    }
+// 重新生成站点名称
+function regenerateStationNames() {
+  const typeCounters = {
+    [STATION_TYPE.VIP]: 0,
+    [STATION_TYPE.HIGH]: 0,
+    [STATION_TYPE.MID]: 0
+  };
+
+  barTypes.forEach((type, index) => {
+    typeCounters[type]++;
+    stationNames[index] = `${type}${String(typeCounters[type]).padStart(2, '0')}`;
   });
-  
-  // 更新图表颜色
-  updateChartColors();
 }
 
 // 更新图表颜色的函数
@@ -130,11 +110,44 @@ function updateChartColors() {
 }
 
 // 更新表格状态的函数
-function updateTableStatus(index, status) {
+function updateTableStatus(index) {
   const tbody = document.querySelector('.info-table tbody');
-  const statusCell = tbody.children[index].querySelector('.status-cell');
+  if (!tbody) return;
+  
+  const row = tbody.children[index];
+  if (!row) return;
+  
+  const statusCell = row.querySelector('.status-cell');
+  if (!statusCell) return;
+  
+  const status = barStatus[index];
   statusCell.textContent = status === STATUS.CHARGING ? '充电中' : '未充电';
   statusCell.style.color = status === STATUS.CHARGING ? '#ff4444' : '#666';
+}
+
+// 更新图表
+function updateChart() {
+  myChart.setOption({
+    series: [{
+      name: '电力值',
+      type: 'bar',
+      data: data,
+      itemStyle: {
+        color: function(params) {
+          return STATUS_COLORS[barStatus[params.dataIndex]];
+        }
+      },
+      label: {
+        show: true,
+        position: 'inside',
+        formatter: function(params) {
+          const status = barStatus[params.dataIndex];
+          const statusText = status === STATUS.CHARGING ? '充电中' : '未充电';
+          return `${params.value}\n${statusText}`;
+        }
+      }
+    }]
+  });
 }
 
 // 注册点击事件
@@ -147,10 +160,10 @@ myChart.on('click', function(params) {
                       STATUS.CHARGING;
     
     // 更新表格状态
-    updateTableStatus(index, barStatus[index]);
+    updateTableStatus(index);
     
     // 更新图表
-    updateChartColors();
+    updateChart();
   }
 });
 
@@ -280,42 +293,38 @@ function calculatePowerAllocation() {
   return newData;
 }
 
-// 更新图表数据的函数
+// 从输入框更新图表
 function updateChartFromInputs() {
+  const inputs = document.querySelectorAll('.power-input');
+  let newTotal = 0;
+  const newValues = [];
+
   // 计算新的电力分配
   const newData = calculatePowerAllocation();
   
-  // 更新数据数组
-  data.length = 0;
-  newData.forEach(val => data.push(val));
-  
-  // 计算数据最大值，向上取整到10的倍数
-  const maxValue = Math.max(...data);
-  const yAxisMax = Math.ceil(maxValue / 10) * 10;
-  
+  // 更新数据
+  for (let i = 0; i < data.length; i++) {
+    data[i] = newData[i];
+  }
+
   // 更新图表
-  myChart.setOption({
-    yAxis: {
-      type: 'value',
-      name: '电力值',
-      max: yAxisMax,
-      axisLabel: {
-        formatter: '{value}'
-      }
-    },
-    series: [
-      {
-        type: 'bar',
-        data
-      }
-    ]
-  });
+  updateChart();
 
   // 更新表格中的电力值
-  updateTablePowerValues();
+  const tbody = document.querySelector('.info-table tbody');
+  if (tbody) {
+    data.forEach((value, index) => {
+      const row = tbody.children[index];
+      if (row) {
+        const powerCell = row.children[1];
+        if (powerCell) {
+          powerCell.textContent = value;
+        }
+      }
+    });
+  }
 
   // 更新输入框的placeholder
-  const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
     input.value = '';
     input.placeholder = data[index];
@@ -323,14 +332,6 @@ function updateChartFromInputs() {
 
   // 更新当前电力显示
   updateCurrentPower();
-}
-
-// 更新表格中的电力值
-function updateTablePowerValues() {
-  const powerCells = document.querySelectorAll('.power-value');
-  data.forEach((value, index) => {
-    powerCells[index].textContent = value;
-  });
 }
 
 // 在清空数据时也更新表格
@@ -343,13 +344,11 @@ function clearAllData() {
     series: [
       {
         type: 'bar',
-        data
+        data: data
       }
     ]
   });
 
-  // 更新表格中的电力值
-  updateTablePowerValues();
 
   // 更新输入框的placeholder
   const inputs = document.querySelectorAll('.power-input');
@@ -425,9 +424,5 @@ updateCurrentPower();
 // 初始化输入框placeholder
 initInputPlaceholders();
 
-// 修改图表时更新表格
-myChart.on('finished', function() {
-  updateTablePowerValues();
-});
 
 window.addEventListener('resize', myChart.resize);
