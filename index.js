@@ -9,7 +9,7 @@ var option;
 
 // 初始数据
 const data = [10, 10, 10, 10, 10, 10];  // 实际分配的电力值
-const demandPower = [-1, -1, -1, -1, -1, -1];  // 需求电力值
+const demandPowerValues = [-1, -1, -1, -1, -1, -1];  // 需求电力值
 const stationNames = ['VIP01', 'VIP02', 'HIGH01', 'HIGH02', 'MID01', 'MID02'];
 
 // 状态常量
@@ -111,7 +111,7 @@ function updateChartFromInputs() {
   inputs.forEach((input, index) => {
     const value = parseFloat(input.value);
     if (!isNaN(value)) {
-      demandPower[index] = value;
+      demandPowerValues[index] = value;
       input.value = ''; // 清空输入框
       input.placeholder = value; // 更新 placeholder
       hasChanges = true;
@@ -160,7 +160,7 @@ function updateAllDisplays() {
   // 更新图表下方输入框的 placeholder
   const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
-    input.placeholder = demandPower[index];
+    input.placeholder = demandPowerValues[index];
   });
 
 
@@ -234,7 +234,9 @@ function calculatePowerAllocation() {
     let totalMinPower = 0;
     devices.forEach(device => {
       const deviceName = stationNames[device.index];
-      totalRatedPower += deviceConfigs[deviceName].ratedPower;
+      // 如果有需求电力且大于1，使用需求电力，否则使用额定电力
+      const demandPower = demandPowerValues[device.index];
+      totalRatedPower += (demandPower >= 1) ? demandPower : deviceConfigs[deviceName].ratedPower;
       totalMinPower += deviceConfigs[deviceName].minPower;
     });
 
@@ -242,52 +244,45 @@ function calculatePowerAllocation() {
       // 如果剩余电力足够满足所有设备的额定电力
       devices.forEach(device => {
         const deviceName = stationNames[device.index];
-        const deviceRatedPower = deviceConfigs[deviceName].ratedPower;
+        const deviceRatedPower = (demandPowerValues[device.index] >= 1) ? demandPowerValues[device.index] : deviceConfigs[deviceName].ratedPower;
         newData[device.index] = deviceRatedPower;
         remainingPower -= deviceRatedPower;
       });
     } else if (remainingPower >= totalMinPower) {
       // 如果剩余电力能满足所有设备的最小电力，按照额定电力比例分配
       let tempRemainingPower = remainingPower;
-      let totalAllocated = 0;
       
-      // 先计算每个设备应得的电力（保留两位小数）
-      const allocations = devices.map(device => {
+      // 先确保每个设备都能获得最小电力
+      devices.forEach(device => {
         const deviceName = stationNames[device.index];
-        const deviceRatedPower = deviceConfigs[deviceName].ratedPower;
-        const powerRatio = deviceRatedPower / totalRatedPower;
-        // 保留两位小数进行计算
-        return {
-          device,
-          power: Math.floor(tempRemainingPower * powerRatio * 100) / 100
-        };
+        const minPower = deviceConfigs[deviceName].minPower;
+        newData[device.index] = minPower;
+        tempRemainingPower -= minPower;
       });
 
-      // 分配整数部分
-      allocations.forEach(({ device, power }) => {
-        const intPower = Math.floor(power);
-        newData[device.index] = intPower;
-        totalAllocated += intPower;
-      });
-
-      // 如果还有未分配的电力，按小数部分大小依次分配
-      const remaining = remainingPower - totalAllocated;
-      if (remaining > 0) {
-        const sortedByDecimal = allocations
-          .map(({ device, power }) => ({
+      // 剩余电力按照额定电力比例分配
+      if (tempRemainingPower > 0) {
+        const allocations = devices.map(device => {
+          const deviceName = stationNames[device.index];
+          const deviceRatedPower = deviceConfigs[deviceName].ratedPower;
+          const powerRatio = deviceRatedPower / totalRatedPower;
+          return {
             device,
-            decimal: power - Math.floor(power)
-          }))
-          .sort((a, b) => b.decimal - a.decimal);
+            power: Math.floor(tempRemainingPower * powerRatio)
+          };
+        });
 
-        // 剩余电力分配给小数部分最大的设备
-        for (let i = 0; i < remaining && i < sortedByDecimal.length; i++) {
-          newData[sortedByDecimal[i].device.index]++;
-        }
+        // 分配额外电力
+        allocations.forEach(({ device, power }) => {
+          if (power > 0) {
+            newData[device.index] += power;
+          }
+        });
       }
 
       // 更新剩余电力
-      remainingPower = remainingPower - totalAllocated - Math.min(remaining, allocations.length);
+      remainingPower = remainingPower - totalMinPower - 
+        devices.reduce((sum, device) => sum + (newData[device.index] - deviceConfigs[stationNames[device.index]].minPower), 0);
     } else {
       // 按设备名称降序排序，逐个分配最小启动电力
       const sortedDevices = [...devices].sort((a, b) => 
@@ -311,7 +306,7 @@ function calculatePowerAllocation() {
   function adjustPowerByDemand(devices) {
     devices.forEach(device => {
       if (newData[device.index] > 0) {  // 只处理已分配电力的设备
-        const deviceDemand = demandPower[device.index];
+        const deviceDemand = demandPowerValues[device.index];
         if (deviceDemand > 0) {  // 如果有具体需求（不为-1）
           if (deviceDemand < newData[device.index]) {
             remainingPower += (newData[device.index] - deviceDemand);
@@ -681,8 +676,8 @@ function updateDeviceType(index, val) {
 // 清空所有需求电力值
 function clearAllDemandPower() {
   // 将所有需求电力值设置为-1
-  for (let i = 0; i < demandPower.length; i++) {
-    demandPower[i] = -1;
+  for (let i = 0; i < demandPowerValues.length; i++) {
+    demandPowerValues[i] = -1;
   }
   
   // 清空所有输入框
@@ -781,7 +776,7 @@ if (option && typeof option === 'object') {
 function initInputPlaceholders() {
   const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
-    input.placeholder = demandPower[index];
+    input.placeholder = demandPowerValues[index];
   });
 }
 
