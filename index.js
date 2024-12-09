@@ -236,7 +236,7 @@ function calculatePowerAllocation() {
       const deviceName = stationNames[device.index];
       // 如果有需求电力且大于1，使用需求电力，否则使用额定电力
       const demandPower = demandPowerValues[device.index];
-      totalRatedPower += (demandPower >= 1) ? demandPower : deviceConfigs[deviceName].ratedPower;
+      totalRatedPower += (demandPower >= 1 && demandPower < deviceConfigs[deviceName].ratedPower) ? demandPower : deviceConfigs[deviceName].ratedPower;
       totalMinPower += deviceConfigs[deviceName].minPower;
     });
 
@@ -244,7 +244,7 @@ function calculatePowerAllocation() {
       // 如果剩余电力足够满足所有设备的额定电力
       devices.forEach(device => {
         const deviceName = stationNames[device.index];
-        const deviceRatedPower = (demandPowerValues[device.index] >= 1) ? demandPowerValues[device.index] : deviceConfigs[deviceName].ratedPower;
+        const deviceRatedPower = (demandPowerValues[device.index] >= 1 && demandPowerValues[device.index] < deviceConfigs[deviceName].ratedPower ) ? demandPowerValues[device.index] : deviceConfigs[deviceName].ratedPower;
         newData[device.index] = deviceRatedPower;
         remainingPower -= deviceRatedPower;
       });
