@@ -136,22 +136,12 @@ function updateAllDisplays() {
   // 更新图表
   updateChart();
 
-  // 更新表格中的电力值和状态
+  // 更新表格中的状态
   const tbody = document.querySelector('.info-table tbody');
   if (tbody) {
     data.forEach((value, index) => {
       const row = tbody.children[index];
       if (row) {
-        // 更新分配电力值
-        const powerCell = row.children[2];
-        if (powerCell) {
-          powerCell.textContent = value;
-        }
-        // 更新需求电力值
-        const demandCell = row.children[3];
-        if (demandCell) {
-          demandCell.textContent = demandPower[index];
-        }
         // 更新状态
         const statusCell = row.querySelector('.status-cell');
         if (statusCell) {
@@ -167,12 +157,12 @@ function updateAllDisplays() {
       }
     });
   }
-
   // 更新图表下方输入框的 placeholder
   const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
     input.placeholder = demandPower[index];
   });
+
 
   // 更新当前电力显示
   updateCurrentPower();

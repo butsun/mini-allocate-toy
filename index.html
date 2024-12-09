@@ -171,6 +171,29 @@
     .slider.round:before {
       border-radius: 50%;
     }
+    .container {
+      padding: 20px;
+    }
+    .info-table {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .info-table th,
+    .info-table td {
+      padding: 8px;
+      text-align: left;
+      border: 1px solid #ddd;
+    }
+    .info-table th {
+      background-color: #f5f5f5;
+    }
+    .min-power-input,
+    .rated-power-input {
+      width: 30px;
+      padding: 4px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -208,8 +231,8 @@
               <tr>
                 <th>设备</th>
                 <th>类型</th>
-                <th>分配电力值</th>
-                <th>需求电力值</th>
+                <!-- <th>分配电力值</th>
+                <th>需求电力值</th> -->
                 <th>状态</th>
                 <th>启动电力</th>
                 <th>额定电力</th>
@@ -225,8 +248,8 @@
                     <option value="MID">MID</option>
                   </select>
                 </td>
-                <td>10</td>
-                <td class="demand-power-cell">-1</td>
+                <!-- <td>10</td>
+                <td class="demand-power-cell">-1</td> -->
                 <td class="status-cell">未充电</td>
                 <td><input type="number" class="min-power-input"  onchange="handleMinPowerChange(0, this.value)"></td>
                 <td><input type="number" class="rated-power-input" onchange="handleRatedPowerChange(0, this.value)"></td>
@@ -240,8 +263,8 @@
                     <option value="MID">MID</option>
                   </select>
                 </td>
-                <td>10</td>
-                <td class="demand-power-cell">-1</td>
+                <!-- <td>10</td>
+                <td class="demand-power-cell">-1</td> -->
                 <td class="status-cell">未充电</td>
                 <td><input type="number" class="min-power-input" onchange="handleMinPowerChange(1, this.value)"></td>
                 <td><input type="number" class="rated-power-input" onchange="handleRatedPowerChange(1, this.value)"></td>
@@ -255,8 +278,8 @@
                     <option value="MID">MID</option>
                   </select>
                 </td>
-                <td>10</td>
-                <td class="demand-power-cell">-1</td>
+                <!-- <td>10</td>
+                <td class="demand-power-cell">-1</td> -->
                 <td class="status-cell">未充电</td>
                 <td><input type="number" class="min-power-input" onchange="handleMinPowerChange(2, this.value)"></td>
                 <td><input type="number" class="rated-power-input" onchange="handleRatedPowerChange(2, this.value)"></td>
@@ -270,8 +293,8 @@
                     <option value="MID">MID</option>
                   </select>
                 </td>
-                <td>10</td>
-                <td class="demand-power-cell">-1</td>
+                <!-- <td>10</td>
+                <td class="demand-power-cell">-1</td> -->
                 <td class="status-cell">未充电</td>
                 <td><input type="number" class="min-power-input" onchange="handleMinPowerChange(3, this.value)"></td>
                 <td><input type="number" class="rated-power-input" onchange="handleRatedPowerChange(3, this.value)"></td>
@@ -285,8 +308,8 @@
                     <option value="MID" selected>MID</option>
                   </select>
                 </td>
-                <td>10</td>
-                <td class="demand-power-cell">-1</td>
+                <!-- <td>10</td>
+                <td class="demand-power-cell">-1</td> -->
                 <td class="status-cell">未充电</td>
                 <td><input type="number" class="min-power-input" onchange="handleMinPowerChange(4, this.value)"></td>
                 <td><input type="number" class="rated-power-input" onchange="handleRatedPowerChange(4, this.value)"></td>
@@ -300,8 +323,8 @@
                     <option value="MID" selected>MID</option>
                   </select>
                 </td>
-                <td>10</td>
-                <td class="demand-power-cell">-1</td>
+                <!-- <td>10</td>
+                <td class="demand-power-cell">-1</td> -->
                 <td class="status-cell">未充电</td>
                 <td><input type="number" class="min-power-input" onchange="handleMinPowerChange(5, this.value)"></td>
                 <td><input type="number" class="rated-power-input" onchange="handleRatedPowerChange(5, this.value)"></td>
