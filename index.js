@@ -176,6 +176,7 @@ function updateAllDisplays() {
 
   // 更新当前电力显示
   updateCurrentPower();
+  updateDevicePowerDisplay();
 }
 
 // 确认按钮点击处理
@@ -315,20 +316,6 @@ function calculatePowerAllocation() {
           newData[device.index] = 0;
         }
       });
-
-      // // 如果还有剩余电力，尝试分配到额定电流
-      // if (remainingPower > 0) {
-      //   const ratedPowerVIP = CONFIG.RATED_CURRENT.VIP;
-      //   const additionalPowerNeeded = ratedPowerVIP - minPowerVIP;
-        
-      //   sortedDevices.forEach(device => {
-      //     if (newData[device.index] === minPowerVIP && remainingPower > 0) {
-      //       const actualAdditional = Math.min(remainingPower, additionalPowerNeeded);
-      //       newData[device.index] += actualAdditional;
-      //       remainingPower -= actualAdditional;
-      //     }
-      //   });
-      // }
     } else {
       // 非借电策略下重新尝试分配额定电流
       allocateGroupPowerWithPriority(
@@ -466,26 +453,6 @@ function calculatePowerAllocation() {
   // 6. 重新分配非在充设备额外电力
   // VIP非在充额外分配（在保持最小启动电力的基础上）
   if (remainingPower > 0 && notChargingVIP.length > 0) {
-    // if (CONFIG.BORROW_POWER.VIP) {
-    //   // 借电策略下的额外分配
-    //   const ratedPowerVIP = CONFIG.RATED_CURRENT.VIP;
-    //   const minPowerVIP = CONFIG.MIN_POWER.VIP;
-    //   const additionalPowerNeeded = ratedPowerVIP - minPowerVIP;
-
-    //   // 按设备名称降序排序
-    //   const sortedDevices = [...notChargingVIP].sort((a, b) => 
-    //     stationNames[b.index].localeCompare(stationNames[a.index])
-    //   );
-      
-    //   // 只给已经有最小启动电力的设备增加额外电力
-    //   sortedDevices.forEach(device => {
-    //     if (newData[device.index] === minPowerVIP && remainingPower > 0) {
-    //       const actualAdditional = Math.min(remainingPower, additionalPowerNeeded);
-    //       newData[device.index] += actualAdditional;
-    //       remainingPower -= actualAdditional;
-    //     }
-    //   });
-    // } 
         // 将已分配的电力放回可分配电力中
         notChargingVIP.forEach(device => {
           remainingPower += newData[device.index];
@@ -623,10 +590,33 @@ function getNextAvailableNumber(type) {
   return number.toString().padStart(2, '0');
 }
 
+// // 更新设备类型
+// function updateDeviceType(index) {
+//   const select = document.querySelectorAll('.type-select')[index];
+//   const newType = select.value;
+//   const oldType = barTypes[index];
+  
+//   // 更新设备类型
+//   barTypes[index] = newType;
+  
+//   // 生成新的设备名称
+//   const newNumber = getNextAvailableNumber(newType);
+//   const newName = `${newType}${newNumber}`;
+  
+//   // 更新设备名称
+//   const nameCell = select.parentElement.previousElementSibling;
+//   nameCell.textContent = newName;
+//   stationNames[index] = newName;
+  
+//   updateAllDisplays();
+// }
+
+
 // 更新设备类型
-function updateDeviceType(index) {
-  const select = document.querySelectorAll('.type-select')[index];
-  const newType = select.value;
+function updateDeviceType(index,val) {
+
+  // const select = document.querySelectorAll('.type-select')[index];
+  const newType = val;
   const oldType = barTypes[index];
   
   // 更新设备类型
@@ -637,12 +627,26 @@ function updateDeviceType(index) {
   const newName = `${newType}${newNumber}`;
   
   // 更新设备名称
-  const nameCell = select.parentElement.previousElementSibling;
-  nameCell.textContent = newName;
+  // const nameCell = select.parentElement.previousElementSibling;
+  // nameCell.textContent = newName;
   stationNames[index] = newName;
+  
+  // 更新表格中的设备名称显示
+  const tbody = document.querySelector('.info-table tbody');
+  if (tbody) {
+    const row = tbody.children[index];
+    if (row) {
+      const nameCell = row.querySelector('td:first-child');
+      if (nameCell) {
+        nameCell.textContent = newName;
+      }
+    }
+  }
   
   updateAllDisplays();
 }
+
+
 
 // 清空所有需求电力值
 function clearAllDemandPower() {
@@ -661,6 +665,79 @@ function clearAllDemandPower() {
   // 更新显示
   updateAllDisplays();
 }
+
+// 设备配置对象，用于存储每个设备的自定义配置
+let deviceConfigs = Array(6).fill(null).map(() => ({
+  minPower: 6,
+  ratedPower: 32
+}));
+
+// 处理最小电力修改
+function handleMinPowerChange(deviceIndex, value) {
+  const minPower = parseFloat(value);
+  if (isNaN(minPower) || minPower < 0) return;
+  
+  deviceConfigs[deviceIndex].minPower = minPower;
+  updateAllDisplays();
+}
+
+// 处理额定电力修改
+function handleRatedPowerChange(deviceIndex, value) {
+  const ratedPower = parseFloat(value);
+  if (isNaN(ratedPower) || ratedPower < 0) return;
+  
+  deviceConfigs[deviceIndex].ratedPower = ratedPower;
+  updateAllDisplays();
+}
+
+// 获取设备的最小电力
+function getDeviceMinPower(deviceIndex) {
+  return deviceConfigs[deviceIndex].minPower;
+}
+
+// 获取设备的额定电力
+function getDeviceRatedPower(deviceIndex) {
+  return deviceConfigs[deviceIndex].ratedPower;
+}
+
+// 更新设备电力显示
+function updateDevicePowerDisplay() {
+  const tbody = document.querySelector('.info-table tbody');
+  if (!tbody) return;
+
+  for (let i = 0; i < 6; i++) {
+    const row = tbody.children[i];
+    if (!row) continue;
+
+    // 更新设备名称
+    const nameCell = row.querySelector('td:first-child');
+    if (nameCell) {
+      nameCell.textContent = stationNames[i];
+    }
+
+    // 更新电力值
+    const minPowerInput = row.querySelector('.min-power-input');
+    const ratedPowerInput = row.querySelector('.rated-power-input');
+    
+    if (minPowerInput) {
+      minPowerInput.value = deviceConfigs[i].minPower;
+    }
+    if (ratedPowerInput) {
+      ratedPowerInput.value = deviceConfigs[i].ratedPower;
+    }
+  }
+}
+
+// 初始化设备配置
+function initDeviceConfigs() {
+  updateDevicePowerDisplay();
+}
+
+// 在页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+  initializeSwitches();
+  initDeviceConfigs();
+});
 
 var option = {
   title: {
@@ -713,7 +790,7 @@ if (option && typeof option === 'object') {
 function initInputPlaceholders() {
   const inputs = document.querySelectorAll('.power-input');
   inputs.forEach((input, index) => {
-    input.placeholder = demandPower[index].toString();
+    input.placeholder = demandPower[index];
   });
 }
 
